@@ -32,7 +32,7 @@ This is a simple Node.js application built with Express. It serves a "Hello, Kub
     This will start the application and make it accessible on `http://localhost:8080`.
 
 4.  **(Optional) Deploy to Kubernetes:**
-    *   Ensure you have a Kubernetes cluster running and `kubectl` configured to connect to it.
+    *   Ensure you have a Kubernetes cluster running and `kubectl` configured to connect to it. //#ai! add instruction. How?
     *   Create a deployment and service using the provided Kubernetes configuration files (e.g., `k8s/deployment.yaml` and `k8s/service.yaml`).  *Note: You will need to create these files if they don't exist.*
     *   Deploy the application:
         ```bash
