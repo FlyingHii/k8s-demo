@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: my-app-container
-        image: node-app:latest  # Replace with your image
+        image: <YOUR_DOCKER_IMAGE_NAME>:<YOUR_IMAGE_TAG>  # Replace with your image //#ai! fix this if I build docker with `    docker build -t node-app . `
         ports:
         - containerPort: 8080  # Or the port your app uses
