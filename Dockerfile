@@ -1,3 +1,5 @@
+//#ai!update this file match the main.js file. remove python
+
 FROM python:3.9-slim-buster
 
 WORKDIR /app
