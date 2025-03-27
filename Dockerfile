@@ -1,12 +1,10 @@
-//#ai!update this file match the main.js file. remove python
-
-FROM python:3.9-slim-buster
+FROM node:16-alpine
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY package*.json ./
+RUN npm install
 
 COPY . .
 
-CMD ["python", "main.py"]
+CMD ["npm", "start"]
