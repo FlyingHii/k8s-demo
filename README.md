@@ -55,6 +55,3 @@ This is a simple Node.js application built with Express. It serves a "Hello, Kub
 *   `.dockerignore`:  Specifies files and directories to exclude when building the Docker image.
 *   `.gitignore`:  Specifies files and directories to exclude from Git version control.
 
-## Contributing
-
-Contributions are welcome!  Feel free to submit pull requests or open issues.
