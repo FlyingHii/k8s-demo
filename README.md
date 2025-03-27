@@ -32,6 +32,7 @@ This is a simple Node.js application built with Express. It serves a "Hello, Kub
     This will start the application and make it accessible on `http://localhost:8080`.
 
 4.  **(Optional) Deploy to Kubernetes:**
+    //#ai! this is local only
     *   Ensure you have a Kubernetes cluster running and `kubectl` configured to connect to it.
         *   **Local Development:** If you're developing locally, you can use tools like Minikube or Docker Desktop (which includes a Kubernetes cluster).  Start Minikube with `minikube start` or ensure Kubernetes is enabled in Docker Desktop settings.
         *   **Cloud Providers:** If you're using a cloud provider (like Google Kubernetes Engine, Amazon Elastic Kubernetes Service, or Azure Kubernetes Service), you'll need to:
