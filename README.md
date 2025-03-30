@@ -1,6 +1,8 @@
-# Self-Hosted Kubernetes (k8s) Cluster Setup Guide
+# Description
 
-## Prerequisites
+This guide outlines how to set up self-hosted Kubernetes clusters using `kubeadm`. It is designed to create a barebones Kubernetes environment specifically for learning the Kubernetes architecture, experimenting with cluster management, and demonstrating scalability.  We will use `kubeadm` to bootstrap the clusters and `kubectl` to interact with them.
+
+# Prerequisites
 - Linux machines (Ubuntu 22.04 LTS recommended)
 - Minimum 3 nodes (1 control plane, 2 worker nodes)
 - Each node requirements:
@@ -11,20 +13,40 @@
    - Disabled swap
    - Unique hostname
 
-## 1. Prepare All Nodes
+# Tools Used in this Guide
+- **kubeadm**:  The primary tool for bootstrapping the Kubernetes control plane and worker nodes in a production-like manner.
+- **kubectl**: Kubernetes command-line tool to manage the cluster and deploy applications.
+- **containerd**: Container runtime for running containers.
+- **Calico**: Container Network Interface (CNI) for enabling pod networking.
 
-### Update System
+## Why?
+
+While tools like `minikube` and `kind` offer simpler and faster ways to set up local Kubernetes clusters, this guide utilizes `kubeadm` for a more hands-on and architecturally representative setup. Here's why:
+
+*   **Architectural Understanding:** `kubeadm` provides a lower-level approach to cluster setup, mirroring how production Kubernetes clusters are often bootstrapped. By using `kubeadm`, you gain a deeper understanding of the different Kubernetes components (API server, controller manager, scheduler, kubelet, etc.) and how they are configured and interact.
+*   **Production-Like Environment:** Clusters created with `kubeadm` more closely resemble production environments compared to those created with `minikube` or `kind`. This includes aspects like certificate management, component configuration, and networking setup.
+*   **Customization and Control:** `kubeadm` offers greater flexibility and control over cluster configuration. You can customize various aspects of the cluster to suit specific learning or experimentation needs.
+*   **Preparation for Real-World Deployments:** If your goal is to understand how to deploy and manage Kubernetes in real-world scenarios, learning `kubeadm` is a valuable step. It prepares you for more complex cluster setups and management tasks you might encounter in production environments.
+*   **kubectl is the Standard:** `kubectl` is the official Kubernetes command-line tool and is universally used to interact with Kubernetes clusters, regardless of how they are set up. Mastering `kubectl` is essential for any Kubernetes user or administrator.
+*   **containerd** is chosen because it's a modern, performant, CNCF-graduated, and Kubernetes-native container runtime that strikes a good balance between simplicity and production readiness. It's a solid default choice for Kubernetes and a good runtime to learn with.
+*   **calico** is chosen because it's a very feature-rich and widely-used CNI that provides robust pod networking and network policy capabilities. It's a strong choice for production-like environments and learning advanced Kubernetes networking concepts.
+
+In summary, while `kubeadm` involves a more manual and detailed setup process, it is intentionally chosen for this guide to provide a richer learning experience focused on Kubernetes architecture and production-oriented cluster management. `kubectl` is the indispensable tool for interacting with and managing any Kubernetes cluster.
+
+# 1. Prepare All Nodes
+
+## Update System
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-### Disable Swap
+## Disable Swap
 ```bash
 sudo swapoff -a
 sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
 
-### Configure Kernel Modules
+## Configure Kernel Modules
 ```bash
 sudo tee /etc/modules-load.d/k8s.conf <<EOF
 overlay
@@ -35,7 +57,7 @@ sudo modprobe overlay
 sudo modprobe br_netfilter
 ```
 
-### Configure Sysctl for Kubernetes Network
+## Configure Sysctl for Kubernetes Network
 ```bash
 sudo tee /etc/sysctl.d/kubernetes.conf <<EOF
 net.bridge.bridge-nf-call-ip6tables = 1
@@ -46,7 +68,7 @@ EOF
 sudo sysctl --system
 ```
 
-## 2. Install Container Runtime (containerd)
+# 2. Install Container Runtime (containerd)
 ```bash
 # Install dependencies
 sudo apt install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
@@ -73,7 +95,7 @@ sudo systemctl restart containerd
 sudo systemctl enable containerd
 ```
 
-## 3. Install Kubernetes Components
+# 3. Install Kubernetes Components
 ```bash
 # Add Kubernetes repository
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
@@ -85,7 +107,7 @@ sudo apt install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-## 4. Initialize Kubernetes Control Plane (On Control Node)
+# 4. Initialize Kubernetes Control Plane (On Control Node)
 ```bash
 # Initialize cluster
 sudo kubeadm init --pod-network-cidr=10.244.0.0/16
@@ -95,11 +117,11 @@ mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-# Install Flannel CNI
-kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+# Install Calico CNI
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
 ```
 
-## 5. Join Worker Nodes
+# 5. Join Worker Nodes
 On each worker node, run the join command generated during control plane initialization:
 ```bash
 sudo kubeadm join <control-plane-host>:<control-plane-port> \
@@ -107,7 +129,7 @@ sudo kubeadm join <control-plane-host>:<control-plane-port> \
   --discovery-token-ca-cert-hash <hash>
 ```
 
-## 6. Verify Cluster
+# 6. Verify Cluster
 ```bash
 # Check node status
 kubectl get nodes
@@ -116,14 +138,14 @@ kubectl get nodes
 kubectl get pods -A
 ```
 
-## Post-Installation Recommendations
+# Post-Installation Recommendations
 1. Install Helm for package management
 2. Set up persistent storage (e.g., local-path-provisioner)
 3. Configure network policies
 4. Implement monitoring (Prometheus, Grafana)
 5. Set up logging infrastructure
 
-## Security Considerations
+# Security Considerations
 - Use network policies
 - Enable RBAC
 - Regularly update Kubernetes and container runtime
@@ -131,7 +153,7 @@ kubectl get pods -A
 - Implement strict firewall rules
 - Rotate certificates periodically
 
-## Troubleshooting
+# Troubleshooting
 - Check `journalctl -u kubelet` for kubelet logs
 - Verify container runtime is running
 - Ensure all required ports are open
@@ -139,17 +161,17 @@ kubectl get pods -A
 
 ---
 
-## Node.js Express App Example
+# Node.js Express App Example
 
 This is a simple Node.js application built with Express. It serves a "Hello, Kubernetes!" message on the root path. It can be deployed on the Kubernetes cluster set up using this guide.
 
-## Prerequisites for Node.js App
+# Prerequisites for Node.js App
 
 * Node.js and npm installed on your machine
 * Docker installed (for building and running the container)
 * kubectl (for deploying to Kubernetes, if applicable)
 
-## Getting Started with Node.js App
+# Getting Started with Node.js App
 
 1. **Clone the repository:**
 
@@ -187,7 +209,7 @@ This is a simple Node.js application built with Express. It serves a "Hello, Kub
       kubectl config set-context --current --namespace=<namespace-name>
       ```
 
-## Project Structure
+# Project Structure
 
 * `main.js`: The main application file (Node.js with Express).
 * `package.json`:  Defines the project's dependencies and scripts.
@@ -197,3 +219,10 @@ This is a simple Node.js application built with Express. It serves a "Hello, Kub
 * `k8s/service.yaml`: Kubernetes service configuration (example).
 * `.dockerignore`:  Specifies files and directories to exclude when building the Docker image.
 * `.gitignore`:  Specifies files and directories to exclude from Git version control.
+
+# Isolation (Optional)
+For local development and testing, consider using tools like KIND (Kubernetes IN Docker) to run Kubernetes clusters within Docker. This provides isolation from your host system and simplifies cluster management for experimentation.
+
+# Inspiring resource
+https://github.com/zicodeng/k8s-demo?tab=readme-ov-file
+https://github.com/aaliboyev/basic-self-hosted-k8s-cluster/tree/main
