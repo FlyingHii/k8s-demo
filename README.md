@@ -47,6 +47,13 @@ sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
 
 ## Configure Kernel Modules
+This step loads kernel modules required by Kubernetes:
+
+*   `overlay`: for container image layering.
+*   `br_netfilter`: for bridged networking (CNI like Calico).
+
+These modules are loaded at boot and applied immediately.
+
 ```bash
 sudo tee /etc/modules-load.d/k8s.conf <<EOF
 overlay
