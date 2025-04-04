@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:latest // ai! use ubuntu 22
 WORKDIR /app
 
 RUN apt-get update && apt-get upgrade -y
