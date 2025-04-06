@@ -43,7 +43,8 @@ For this guide, we will set up a single-node Kubernetes cluster inside a Docker 
 1.  **Run a Docker container with Ubuntu base image:** Init the environment container.
 
     ```bash
-    docker run --rm -it --privileged --name k8s-node ubuntu:latest /bin/bash
+    docker run --privileged -it k8s-node /bin/bash                                                                                                                                                                                             
+    # docker run --rm -it --privileged --name k8s-node ubuntu:latest /bin/bash
     ```
     *   `docker run`:  This is the Docker command to run a new container.
     *   `--rm`: Automatically removes the container when it exits. This keeps our system clean.
@@ -140,6 +141,7 @@ apt-mark hold kubelet kubeadm kubectl # Optional: prevent accidental upgrades
 ```
 
 # 4. Initialize Kubernetes Control Plane (On Control Node - which is our Docker Container) (Inside the Docker Container)
+// ai! how to run these commands? In dockerfile or in the bash script in container
 ```bash
 # Initialize cluster
 kubeadm init --pod-network-cidr=10.244.0.0/16
