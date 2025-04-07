@@ -21,7 +21,6 @@ RUN lsmod | grep overlay || (echo "Error: overlay module not loaded" && exit 1)
 #RUN modprobe br_netfilter
 #RUN modprobe --security=insecure br_netfilter
 #RUN --security=insecure modprobe br_netfilter
-#RUN modprobe --security=CAP_ADD:SYS_MODULE br_netfilter
 #RUN lsmod | grep br_netfilter || (echo "Error: br_netfilter module not loaded" && exit 1)
 
 RUN cat <<EOF | tee /etc/sysctl.d/kubernetes.conf
@@ -38,6 +37,7 @@ RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /
 
 RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 
+# Install containerd
 RUN apt-get update
 RUN apt-get install -y containerd.io
 
@@ -75,4 +75,10 @@ RUN apt-get update && apt-get install -y \
     && apt-mark hold kubelet kubeadm kubectl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy init script into the image
+COPY k8s/init-k8s.sh .
+# Make the script executable
+RUN chmod +x init-k8s.sh
+# Run init-k8s script
+RUN bash -c "./init-k8s.sh"
 CMD ["swapoff", "-a"]

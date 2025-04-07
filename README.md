@@ -141,7 +141,6 @@ apt-mark hold kubelet kubeadm kubectl # Optional: prevent accidental upgrades
 ```
 
 # 4. Initialize Kubernetes Control Plane (On Control Node - which is our Docker Container) (Inside the Docker Container)
-// ai! how to run these commands? In dockerfile or in the bash script in container
 ```bash
 # Initialize cluster
 kubeadm init --pod-network-cidr=10.244.0.0/16
