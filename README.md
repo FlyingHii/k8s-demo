@@ -1,270 +1,197 @@
-# Description
+# Kubernetes Barebones Demo with KVM, Ubuntu Server, and kubeadm
 
-This guide outlines how to set up self-hosted Kubernetes clusters using `kubeadm` within a Docker container based on the `ubuntu:latest` image.
-It is designed to create a barebones Kubernetes environment specifically for learning the Kubernetes architecture, experimenting with cluster management, and demonstrating scalability.
-We will use `kubeadm` to bootstrap the clusters and `kubectl` to interact with them.
+This guide explains how to build a **realistic, barebones, multi-node Kubernetes cluster** using:
 
-This approach encapsulates the Kubernetes control plane and worker nodes inside Docker containers, providing an isolated and reproducible environment for learning and experimentation.
+- **KVM/QEMU** virtualization
+- **Multiple Ubuntu Server 22.04 LTS VMs**
+- **Manual kubeadm setup**
+- **Containerd** as the container runtime
+- **Calico** as the CNI plugin
+- **Node.js demo app** deployed on the cluster
+- **JMeter** or similar for scalability/load testing
+
+---
+
+# Why this approach?
+- **Closest to production**: no Docker-in-Docker hacks
+- **Full control**: learn kubeadm, networking, scaling deeply
+- **Barebones**: you bootstrap everything yourself
+- **High performance**: KVM + Ubuntu Server + containerd
+- **Ubuntu Server preferred**: minimal footprint, no GUI, optimized for server workloads, less overhead than Desktop or Cloud images, making it ideal for lightweight, production-like Kubernetes clusters
+- **Multi-node**: realistic cluster behavior
+- **Great for demos, learning, experimentation**
+
+---
 
 # Prerequisites
 
-To follow this guide, we will need:
+- Linux host with **KVM/QEMU** installed (`virt-manager` recommended)
+- Hardware virtualization enabled (VT-x/AMD-V)
+- Ubuntu Server 22.04 LTS ISO
+- At least **2 VMs** (1 master, 1+ workers), each with:
+  - 2+ CPUs
+  - 2-4GB RAM
+  - 20GB+ disk
+- Internet access for package downloads
+- Basic Linux skills
 
-- **Docker installed on our host machine**: Docker will be used to run the container that will host the Kubernetes cluster.
-- **Basic understanding of Docker**: Familiarity with running Docker containers and executing commands inside them will be helpful.
+---
 
-# Tools Used in this Guide
-- **kubeadm**:  The primary tool for bootstrapping the Kubernetes control plane and worker nodes in a production-like manner.
-- **kubectl**: Kubernetes command-line tool to manage the cluster and deploy applications.
-- **containerd**: Container runtime for running containers within the Kubernetes nodes.
-- **Calico**: Container Network Interface (CNI) for enabling pod networking within the Kubernetes cluster.
-- **Ubuntu `latest` Docker Image**: The base operating system for the Docker container hosting the Kubernetes cluster.
+# Step-by-step setup
 
-## Why?
+## 1. Create Ubuntu Server VMs
 
-While tools like `minikube` and `kind` offer simpler and faster ways to set up local Kubernetes clusters, this guide utilizes `kubeadm` for a more hands-on and architecturally representative setup within a Docker container. Here's why this approach is valuable for learning:
+- Use `virt-manager` or `virsh` to create 2+ VMs
+- Network: **Bridged** or **host-only** so VMs can communicate
+- Install Ubuntu Server 22.04 LTS on each VM
+- Set static IPs or DHCP reservations for easier access
+- Update system:
+  ```bash
+  sudo apt update && sudo apt upgrade -y
+  ```
 
-*   **Architectural Understanding:** `kubeadm` provides a lower-level approach to cluster setup, mirroring how production Kubernetes clusters are often bootstrapped. By using `kubeadm` inside a Docker container, we gain a deeper understanding of the different Kubernetes components (API server, controller manager, scheduler, kubelet, etc.) and how they are configured and interact, all within an isolated environment.
-*   **Production-Like Environment (in a Container):** Clusters created with `kubeadm` more closely resemble production environments compared to those created with those created with `minikube` or `kind`. This includes aspects like certificate management, component configuration, and networking setup, even when contained within Docker.
-*   **Customization and Control:** `kubeadm` offers greater flexibility and control over cluster configuration. We can customize various aspects of the cluster to suit specific learning or experimentation needs, and Docker provides a consistent environment to do so.
-*   **Preparation for Real-World Deployments:** If our goal is to understand how to deploy and manage Kubernetes in real-world scenarios, learning `kubeadm` is a valuable step. It prepares us for more complex cluster setups and management tasks we might encounter in production environments, and practicing in Docker adds another layer of relevant skills.
-*   **kubectl is the Standard:** `kubectl` is the official Kubernetes command-line tool and is universally used to interact with Kubernetes clusters, regardless of how they are set up. Mastering `kubectl` is essential for any Kubernetes user or administrator.
-*   **containerd** is chosen because it's a modern, performant, CNCF-graduated, and Kubernetes-native container runtime that strikes a good balance between simplicity and production readiness. It's a solid default choice for Kubernetes and a good runtime to learn with.
-*   **calico** is chosen because it's a very feature-rich and widely-used CNI that provides robust pod networking and network policy capabilities. It's a strong choice for production-like environments and learning advanced Kubernetes networking concepts.
-
-In summary, while `kubeadm` involves a more manual and detailed setup process, it is intentionally chosen for this guide to provide a richer learning experience focused on Kubernetes architecture and production-oriented cluster management, now within the controlled and isolated environment of a Docker container. `kubectl` remains the indispensable tool for interacting with and managing any Kubernetes cluster.
-
-# Prepare Server: Docker Container Setup
-
-For this guide, we will set up a single-node Kubernetes cluster inside a Docker container based on the `ubuntu:latest` image. This container will serve as our "server" for deploying Kubernetes.
-
-## Steps to Prepare the Docker Container
-
-1.  **Run a Docker container with Ubuntu base image:** Init the environment container.
-
-    ```bash
-    docker run --privileged -it k8s-node /bin/bash                                                                                                                                                                                             
-    # docker run --rm -it --privileged --name k8s-node ubuntu:latest /bin/bash
-    ```
-    *   `docker run`:  This is the Docker command to run a new container.
-    *   `--rm`: Automatically removes the container when it exits. This keeps our system clean.
-    *   `-it`:  Allocates a pseudo-TTY connected to the container and keeps STDIN open, even if not attached. This allows us to interact with the container's shell.
-    *   `--privileged`:  Gives the container extended privileges. **This is necessary for `kubeadm` and Kubernetes components to function correctly inside a Docker container as they need to perform operations that require root capabilities.** Be aware of the security implications of privileged containers, especially in production environments. For learning and isolated experimentation, it is acceptable.
-    *   `--name k8s-node`: Assigns the name "k8s-node" to our container, making it easier to reference later.
-    *   `ubuntu:latest`: Specifies the Docker image to use as the base for the container. In this case, we are using the latest version of the Ubuntu image.
-    *   `/bin/bash`:  Specifies the command to run when the container starts. Here, we are starting a Bash shell, so we can execute commands inside the container.
-
-2.  **We are now inside the Docker container's shell.** All subsequent commands in the following sections (Prepare All Nodes, Install Container Runtime, Install Kubernetes Components, Initialize Kubernetes Control Plane) will be executed **within this Docker container's shell**.
-
-# 1. Prepare All Nodes (Inside the Docker Container)
-
-Perform these steps inside the running Docker container (`k8s-node`).
-
-## Update System
-```bash
-apt-get update && apt-get upgrade -y
-```
-
-## Disable Swap
-```bash
-swapoff -a
-sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
-```
-
-## Configure Kernel Modules
-This step loads kernel modules required by Kubernetes:
-
-*   `overlay`: for container image layering.
-*   `br_netfilter`: for bridged networking (CNI like Calico).
-
-These modules are loaded at boot and applied immediately.
+## 2. Prepare all nodes
 
 ```bash
-mkdir -p /etc/modules-load.d/
-cat <<EOF | tee /etc/modules-load.d/k8s.conf
-overlay
-br_netfilter
-EOF
+# Disable swap
+sudo swapoff -a
+sudo sed -i '/ swap / s/^/#/' /etc/fstab
 
-modprobe overlay
-modprobe br_netfilter
-```
+# Load kernel modules
+sudo modprobe overlay
+sudo modprobe br_netfilter
 
-## Configure Sysctl for Kubernetes Network
-```bash
-cat <<EOF | tee /etc/sysctl.d/kubernetes.conf
+# Set sysctl params
+cat <<EOF | sudo tee /etc/sysctl.d/kubernetes.conf
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
-
-sysctl --system
+sudo sysctl --system
 ```
 
-# 2. Install Container Runtime (containerd) (Inside the Docker Container)
-```bash
-# Install dependencies
-apt-get install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
+## 3. Install containerd
 
-# Add Docker's official GPG key (for containerd repository - although we are using ubuntu:latest, containerd packages are often from Docker's repo)
+```bash
+sudo apt-get install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/docker.gpg
-
-# Add Docker repository
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-# Install containerd
-apt-get update
-apt-get install -y containerd.io
-
-# Configure containerd
-mkdir -p /etc/containerd
-containerd config default | tee /etc/containerd/config.toml
-
-# Enable SystemdCgroup
-sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
-
-# Restart containerd
-systemctl restart containerd
-systemctl enable containerd
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update
+sudo apt-get install -y containerd.io
+sudo mkdir -p /etc/containerd
+sudo containerd config default | sudo tee /etc/containerd/config.toml
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl enable containerd
 ```
 
-# 3. Install Kubernetes Components (Inside the Docker Container)
-```bash
-# Add Kubernetes repository
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-add-apt-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main" # Using xenial repo for compatibility, may need to adjust based on ubuntu:latest version
+## 4. Install Kubernetes components
 
-# Install kubelet, kubeadm, kubectl
-apt-get update
-apt-get install -y kubelet kubeadm kubectl
-apt-mark hold kubelet kubeadm kubectl # Optional: prevent accidental upgrades
+```bash
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates curl
+sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-# 4. Initialize Kubernetes Control Plane (On Control Node - which is our Docker Container) (Inside the Docker Container)
+## 5. Initialize the control-plane node
+
+On **master node only**:
+
 ```bash
-# Initialize cluster
-kubeadm init --pod-network-cidr=10.244.0.0/16
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+```
 
-# Configure kubectl for current user (root inside container)
-mkdir -p /root/.kube
-cp -i /etc/kubernetes/admin.conf /root/.kube/config
-chown $(id -u):$(id -g) /root/.kube/config
+Save the `kubeadm join ...` command output.
 
-# Install Calico CNI
+Configure kubectl:
+
+```bash
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+## 6. Install Calico CNI
+
+```bash
 kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
 ```
 
-# 5. Join Worker Nodes (Not applicable for this single-node setup)
+## 7. Join worker nodes
 
-This guide focuses on setting up a single-node Kubernetes control plane for learning purposes. Joining worker nodes is not covered in this single-node setup within Docker. For multi-node clusters, consider using VMs or separate Docker containers and adapting the `kubeadm join` command accordingly.
+Run the saved `kubeadm join ...` command on each worker node.
 
-# 6. Verify Cluster (Inside the Docker Container)
+## 8. Verify the cluster
+
 ```bash
-# Check node status
 kubectl get nodes
-
-# Check system pods
 kubectl get pods -A
 ```
 
-# Post-Installation Recommendations
+---
 
-Once we have our single-node Kubernetes cluster running inside the Docker container, we can explore further Kubernetes concepts and configurations. Consider these next steps:
+# Deploy the Node.js demo app
 
-1.  **Install Helm for package management**:  `helm` is a package manager for Kubernetes, simplifying application deployment and management.
-2.  **Set up persistent storage** (e.g., local-path-provisioner):  For stateful applications, we'll need to configure persistent storage.
-3.  **Configure network policies**:  Enhance cluster security by defining network policies to control traffic between pods.
-4.  **Implement monitoring** (Prometheus, Grafana):  Set up monitoring tools to observe cluster health and application performance.
-5.  **Set up logging infrastructure**:  Centralize and manage logs from our Kubernetes cluster and applications.
+1. **Build the Docker image**
 
-# Security Considerations
+```bash
+docker build -t node-app .
+```
 
-*   **Privileged Container:** Be mindful that this setup uses a `--privileged` Docker container, which has security implications. This is acceptable for a local learning environment but should be carefully considered for more sensitive setups.
-*   **Network Policies**: Implement network policies to restrict network traffic within the cluster.
-*   **RBAC (Role-Based Access Control)**: Kubernetes RBAC is enabled by default and should be properly configured to control access to cluster resources.
-*   **Regularly update Kubernetes and container runtime**: Keep our Kubernetes components and container runtime updated with security patches.
-*   **Use pod security admission**: Enforce pod security standards to improve the security posture of our applications.
-*   **Implement strict firewall rules**: If exposing our cluster externally, configure firewalls to limit access to necessary ports.
-*   **Rotate certificates periodically**: Kubernetes certificates should be rotated regularly for security.
+2. **Load the image into your nodes**
 
-# Troubleshooting
+- Push to a registry **or**
+- Save and copy to each node:
+  ```bash
+  docker save -o node-app.tar node-app:latest
+  scp node-app.tar user@worker:/tmp/
+  ssh user@worker 'docker load -i /tmp/node-app.tar'
+  ```
 
-*   **Check `journalctl -u kubelet` for kubelet logs**:  If we encounter issues with Kubernetes components, check the kubelet logs for errors.
-*   **Verify container runtime is running**: Ensure `containerd` service is active and running without errors (`systemctl status containerd`).
-*   **Ensure all required ports are open (within the container)**: For a single-node setup in Docker, port conflicts are less of an issue, but in more complex setups, ensure necessary ports for Kubernetes components are accessible.
-*   **Check network configuration**: Verify that the container's network is configured correctly and that pods can communicate with each other.
+3. **Deploy to Kubernetes**
+
+```bash
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+```
+
+4. **Access the app**
+
+- Use `kubectl port-forward` or NodePort service
+- Or configure Ingress
 
 ---
 
-# Node.js Express App Example
+# Load testing and scalability demo
 
-This is a simple Node.js application built with Express. It serves a "Hello, Kubernetes!" message on the root path. It can be deployed on the Kubernetes cluster set up using this guide.
+- Use **JMeter**, **wrk**, or **hey** to generate load
+- Scale up/down:
+  ```bash
+  kubectl scale deployment my-app-deployment --replicas=5
+  ```
+- Observe pod scheduling, resource usage, resilience
 
-# Prerequisites for Node.js App
+---
 
-* Node.js and npm installed on our machine
-* Docker installed (for building and running the container - for the app image, not the k8s cluster)
-* kubectl (We will need to install `kubectl` on our **host machine** to interact with the Kubernetes cluster running inside the Docker container.)
+# Summary
 
-# Getting Started with Node.js App
+- **KVM + Ubuntu Server 22.04 LTS VMs**
+- **Manual kubeadm + containerd + Calico**
+- **Multi-node, barebones, production-like**
+- **Node.js app deployed via Kubernetes**
+- **Load testing with JMeter or similar**
 
-1. **Clone the repository:**
+---
 
-   ```bash
-   git clone <repository_url>
-   cd <repository_name>
-   ```
+# Why this is a great demo
 
-2. **Build the Docker image for the Node.js app:**
-
-   ```bash
-   docker build -t node-app .
-   ```
-
-3. **Load the Docker image into the Kubernetes cluster container:**
-
-   Since our Kubernetes cluster is running inside the `k8s-node` Docker container, we need to load the `node-app` image into the *same* Docker environment.  We can do this by copying the image as a tar file and then loading it inside the `k8s-node` container.
-
-   ```bash
-   # On our host machine:
-   docker save -o node-app.tar node-app:latest
-   docker cp node-app.tar k8s-node:/tmp/node-app.tar
-
-   # Inside the k8s-node container:
-   docker load -i /tmp/node-app.tar
-   ```
-
-4. **Deploy to Kubernetes:**
-    * Ensure we are inside the `k8s-node` container and `kubectl` is configured (as done in the guide).
-    * Create a deployment and service using the provided Kubernetes configuration files (`k8s/deployment.yaml` and `k8s/service.yaml`).
-    * Deploy the application:
-      ```bash
-      kubectl apply -f k8s/deployment.yaml
-      kubectl apply -f k8s/service.yaml
-      ```
-    * **To access the application from our host machine**, we will need to determine the service's external IP or use port-forwarding since it's a LoadBalancer service in the example. However, in a single-node Docker container setup, LoadBalancer services might not get an external IP in the traditional sense. We might need to use `kubectl port-forward` to access the service on our host machine or change the service type to `NodePort` or `ClusterIP` and adjust access methods accordingly.
-    * **Access the application using k9s:** If we have `k9s` installed and configured to connect to our Kubernetes cluster (we'd need to configure `kubectl` context on our host to point to the cluster inside the container, potentially by copying the admin.conf from the container), we can use it to view and manage our deployment. Run `k9s` in our terminal and navigate to the `pods` or `services` view to see our application.
-    * **Set the Kubernetes namespace:** If we want to deploy to a specific namespace, set the context:
-      ```bash
-      kubectl config set-context --current --namespace=<namespace-name>
-      ```
-
-# Project Structure
-
-* `main.js`: The main application file (Node.js with Express).
-* `package.json`:  Defines the project's dependencies and scripts.
-* `Dockerfile`:  Instructions for building the Docker image for the Node.js app.
-* `README.md`:  This file.
-* `k8s/deployment.yaml`: Kubernetes deployment configuration (example).
-* `k8s/service.yaml`: Kubernetes service configuration (example).
-* `.dockerignore`:  Specifies files and directories to exclude when building the Docker image.
-* `.gitignore`:  Specifies files and directories to exclude from Git version control.
-
-# Isolation
-
-This entire Kubernetes setup is already isolated within a Docker container named `k8s-node`. If we want to further isolate our Node.js application deployments within the Kubernetes cluster, we can use Kubernetes namespaces.
-
-# Inspiring resource
-
-https://github.com/zicodeng/k8s-demo?tab=readme-ov-file
-https://github.com/aaliboyev/basic-self-hosted-k8s-cluster/tree/main
+- **Full control, transparency**
+- **Realistic architecture**
+- **Learn kubeadm, networking, scaling deeply**
+- **No Docker-in-Docker hacks**
+- **High performance**
+- **Perfect for education, experimentation, and showcasing Kubernetes**
