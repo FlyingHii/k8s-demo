@@ -41,7 +41,7 @@ This guide explains how to build a **realistic, barebones, multi-node Kubernetes
 
 ## 1. Create Ubuntu Server VMs
 
-- Use `virt-manager` or `virsh` to create 2+ VMs
+- Use `virt-manager` or `virsh` to create 2+ VMs  
 - Network: **Bridged** or **host-only** so VMs can communicate
 - Install Ubuntu Server 22.04 LTS on each VM
 - Set static IPs or DHCP reservations for easier access
