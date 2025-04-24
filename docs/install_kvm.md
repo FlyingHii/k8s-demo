@@ -1,6 +1,6 @@
 Installing KVM/QEMU on a Linux host is a straightforward process, but the exact commands depend on your specific Linux distribution. Here's a breakdown of the general steps and commands for common distributions:
 
-**Prerequisites:**
+# **Prerequisites:**
 
 Before you begin, ensure your system meets the following requirements:
 
@@ -12,7 +12,7 @@ Before you begin, ensure your system meets the following requirements:
 
 2. **User Privileges:** You'll need root privileges (using `sudo`).
 
-**General Installation Steps:**
+# **General Installation Steps:**
 
 The core components you need to install are:
 
@@ -22,9 +22,9 @@ The core components you need to install are:
 * **virt-manager:** A graphical user interface (GUI) for managing virtual machines via libvirt. Recommended if you prefer a GUI.
 * **virt-viewer:** A simple viewer for virtual machine consoles.
 
-**Installation Commands for Common Distributions:**
+# **Installation Commands for Common Distributions:**
 
-**1. Debian/Ubuntu:**
+# **1. Debian/Ubuntu:**
 
 ```bash
 sudo apt update
@@ -37,7 +37,7 @@ sudo apt install qemu-kvm libvirt-daemon libvirt-clients bridge-utils virt-manag
 * **`bridge-utils`:** Utilities for creating network bridges (often useful for networking VMs).
 * **`virt-manager`:** The graphical VM manager.
 
-**2. Fedora/CentOS/RHEL:**
+# **2. Fedora/CentOS/RHEL:**
 
 ```bash
 sudo dnf update  # Or 'sudo yum update' for older CentOS/RHEL
@@ -49,7 +49,7 @@ sudo dnf install qemu-kvm libvirt virt-install virt-manager
 * **`virt-install`:** A command-line tool for creating VMs.
 * **`virt-manager`:** The graphical VM manager.
 
-**3. Arch Linux:**
+# **3. Arch Linux:**
 
 ```bash
 sudo pacman -Syu
@@ -60,7 +60,7 @@ sudo pacman -S qemu libvirt virt-manager
 * **`libvirt`:** The libvirt service and command-line tools.
 * **`virt-manager`:** The graphical VM manager.
 
-**Post-Installation Steps (Essential):**
+# **Post-Installation Steps (Essential):**
 
 After installation, you need to perform a few crucial steps:
 
@@ -100,7 +100,7 @@ After installation, you need to perform a few crucial steps:
    ```
    It should show as "active (running)".
 
-**Using KVM/QEMU:**
+# **Using KVM/QEMU:**
 
 Once installed and configured, you can start using KVM/QEMU to create and manage virtual machines. Here are the common ways:
 
@@ -113,7 +113,7 @@ Once installed and configured, you can start using KVM/QEMU to create and manage
     * `virsh create <xml_file>`: Create a VM from an XML definition file.
 * **`virt-install` (Command Line):** Used for creating VMs from the command line. It's often used in scripts for automating VM deployment.
 
-**Example: Creating a VM with `virt-manager`**
+# **Example: Creating a VM with `virt-manager`**
 
 1. Open `virt-manager`.
 2. Click the "Create a new virtual machine" button.
@@ -124,13 +124,13 @@ Once installed and configured, you can start using KVM/QEMU to create and manage
    * Storage location and size.
    * Network configuration.
 
-**Example: Listing VMs with `virsh`**
+# **Example: Listing VMs with `virsh`**
 
 ```bash
 virsh list --all
 ```
 
-**Troubleshooting:**
+# **Troubleshooting:**
 
 * **"KVM is not available" or similar errors:**
     * Ensure your CPU supports hardware virtualization (check `grep -E 'vmx|svm' /proc/cpuinfo`).
@@ -143,7 +143,7 @@ virsh list --all
     * Check your network bridge configuration (often automatically handled by libvirt, but sometimes requires manual setup).
     * Ensure the virtual network defined in libvirt is active.
 
-**In summary, the process involves:**
+# **In summary, the process involves:**
 
 1. **Checking hardware support.**
 2. **Installing the necessary packages for your distribution.**
@@ -152,4 +152,28 @@ virsh list --all
 5. **Verifying the installation.**
 6. **Using `virt-manager` or `virsh` to create and manage VMs.**
 
-Remember to consult the official documentation for your specific Linux distribution and KVM/libvirt for more in-depth information and advanced configurations. Good luck!
+# **Getting Started with `virt-manager` and Creating 3 VMs**
+
+Here's a basic guide to get you started with `virt-manager` and create three virtual machines:
+
+1.  **Launch `virt-manager`:** Open the `virt-manager` application from your applications menu or by running `virt-manager` in your terminal (you may need to use `sudo` if you haven't added your user to the `libvirt` group).
+
+2.  **Create a New VM:** Click the "Create a new virtual machine" button (usually an icon of a computer with a plus sign).
+
+3.  **Choose Installation Method:** Select how you want to install the operating system.  Common options include:
+    *   **Local install media (ISO image):**  Choose this if you have an ISO file of the operating system.
+    *   **Network install (URL):**  Use this if you want to install from a network location.
+
+4.  **Select the ISO Image (if applicable):** If you chose "Local install media," browse to and select the ISO file for the operating system you want to install.
+
+5.  **Choose Operating System:** `virt-manager` will try to detect the operating system.  You can usually accept the default or select the correct OS from the list.
+
+6.  **Memory and CPU:** Allocate memory (RAM) and CPU cores to the VM.  The recommended amount depends on the OS and the tasks you plan to run.
+
+7.  **Create Storage:** Create a virtual hard disk for the VM.  Specify the size and location.
+
+8.  **Network Configuration:** Configure the network.  The default is usually NAT, which allows the VM to access the internet.  You can also set up a bridge for the VM to have its own IP address on your network.
+
+9.  **Start the Installation:** Click "Finish" to start the VM and begin the OS installation.
+
+10. **Repeat for 3 VMs:** Repeat steps 2-9 to create two more VMs.  Give each VM a unique name and allocate appropriate resources.
