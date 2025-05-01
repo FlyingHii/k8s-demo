@@ -1,84 +1,36 @@
-FROM ubuntu:22.04
+# Use a minimal Go base image
+FROM golang:1.22-alpine AS builder
+
+# Set the working directory
 WORKDIR /app
 
-RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y kmod
+# Copy go.mod and go.sum and download dependencies
+COPY go.mod .
+COPY go.sum .
+# Install git for go mod download if needed
+RUN apk add --no-cache git
+RUN go mod download
 
-# Install extra kernel modules to include overlay and br_netfilter
-RUN apt-get install -y linux-modules-extra-$(uname -r)
+# Copy the source code
+COPY src/ .
 
-RUN sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o /gin-app main.go
 
-RUN mkdir -p /etc/modules-load.d/
-RUN cat <<EOF | tee /etc/modules-load.d/k8s.conf
-overlay
-br_netfilter
-EOF
-RUN modprobe overlay
-
-RUN lsmod | grep overlay || (echo "Error: overlay module not loaded" && exit 1)
-
-#RUN modprobe br_netfilter
-#RUN modprobe --security=insecure br_netfilter
-#RUN --security=insecure modprobe br_netfilter
-#RUN lsmod | grep br_netfilter || (echo "Error: br_netfilter module not loaded" && exit 1)
-
-RUN cat <<EOF | tee /etc/sysctl.d/kubernetes.conf
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-RUN sysctl --system
-
-# Install Container Runtime (containerd) (Inside the Docker Container)
-RUN apt-get install -y curl gnupg2 software-properties-common apt-transport-https ca-certificates
-
-RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/docker.gpg
-
-RUN add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-
-# Install containerd
-RUN apt-get update
-RUN apt-get install -y containerd.io
-
-RUN mkdir -p /etc/containerd
-RUN containerd config default | tee /etc/containerd/config.toml
-
-RUN sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
-
-RUN systemctl enable containerd
-
-# Avoid prompts from apt
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Update and install prerequisites
-RUN apt-get update && apt-get install -y \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release \
-    sudo \
-    && rm -rf /var/lib/apt/lists/*
-
-# Add Kubernetes GPG key
-RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-
-# Add the Kubernetes apt repository (using the new URL format)
-RUN echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
-
-# Install Kubernetes components
-RUN apt-get update && apt-get install -y \
-    kubelet \
-    kubeadm \
-    kubectl \
-    && apt-mark hold kubelet kubeadm kubectl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy init script into the image
-COPY k8s/init-k8s.sh .
-# Make the script executable
-RUN chmod +x init-k8s.sh
-# Run init-k8s script
-RUN bash -c "./init-k8s.sh"
-CMD ["swapoff", "-a"]
+## Use a minimal base image for the final stage
+#FROM alpine:latest as runner
+#
+## Install ca-certificates to ensure SSL works for external calls if needed
+#RUN apk --no-cache add ca-certificates
+#
+## Set the working directory
+#WORKDIR /root/
+#
+## Copy the built executable from the builder stage
+#COPY --from=builder /gin-app .
+#
+## Expose the port the app listens on
+#EXPOSE 8080
+#
+## Command to run the executable
+#CMD ["./gin-app"]

@@ -15,7 +15,7 @@ spec:
         app: my-app
     spec:
       containers:
-      - name: my-app-container
-        image: node-app:latest
+      - name: gin-app-container # Changed container name
+        image: go-app:latest # Keep image name for simplicity, build the Go app with this tag
         ports:
         - containerPort: 8080
