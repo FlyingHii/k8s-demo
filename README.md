@@ -32,18 +32,30 @@ docker build -t go-app .
 - Save the image as a tar file and copy it to each worker node, then load it:
   ```bash
   docker save -o go-app.tar go-app:latest
-  scp go-app.tar user@worker:/tmp/
-  ssh user@worker 'docker load -i /tmp/go-app.tar'
+  scp go-app.tar user@worker:~/
+  ssh user@worker 'docker load -i ~/go-app.tar'
   ```
   *(Replace `user` and `worker` with your actual username and worker node hostname/IP)*
-3. **Deploy to Kubernetes**
+
+3. **Copy Kubernetes manifests to the master node**
+
+Before deploying, copy the `k8s/` directory from your host machine to the Kubernetes master node VM.
+
+```bash
+scp -r k8s/ user@master:~/
+```
+*(Replace `user` and `master` with your actual username and master node hostname/IP)*
+
+4. **Deploy to Kubernetes**
+
+SSH into your master node VM and run the following commands from the directory where you copied the `k8s/` folder (e.g., `~/k8s/`).
 
 ```bash
 kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
 ```
 
-4. **Access the app**
+5. **Access the app**
 
 - Use `kubectl port-forward` or NodePort service
 - If using a LoadBalancer service, you might need a cloud provider integration or a tool like MetalLB in a baremetal/VM setup to get an external IP. Alternatively, use `NodePort` or `ClusterIP` and access methods suitable for your environment.
