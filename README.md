@@ -272,4 +272,6 @@ https://github.com/aaliboyev/basic-self-hosted-k8s-cluster/tree/main
 
 # Reference
 
-https://devopscube.com/setup-kubernetes-cluster-kubeadm/#step-7-join-worker-nodes-to-kubernetes-control-plane
+https://devopscube.com/setup-kubernetes-cluster-kubeadm
+
+https://github.com/kelseyhightower/kubernetes-the-hard-way
